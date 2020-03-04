@@ -52,7 +52,7 @@ static struct {
     PyMemAllocator obj;
 } allocators;
 
-ArenaStatistics arenaStatistics;
+ArenaStatistics arena_statistics;
 
 static struct {
     /* Module initialized?
@@ -105,6 +105,10 @@ typedef struct {
     int nframe;
     frame_t frames[1];
 } traceback_t;
+
+typedef struct {
+
+} arenastatistics_t;
 
 #define TRACEBACK_SIZE(NFRAME) \
         (sizeof(traceback_t) + sizeof(frame_t) * (NFRAME - 1))
@@ -903,10 +907,42 @@ done:
     return ret;
 }
 
-static void tracemalloc_get_arena_statistics()
+static PyObject*
+count_as_obj(int count)
 {
-    PyMem_GetArenaStatistics(&arenaStatistics);
-    return arenaStatistics;
+    return INT_FROM_LONG(count);
+}
+
+static PyObject*
+arenastatistics_to_pyobject(ArenaStatistics *s)
+{
+    PyObject *statistics_obj;
+    statistics_obj = PyTuple_New(7);
+    if (statistics_obj == NULL)
+        return NULL;
+
+    PyObject* usable_arena_count_obj = count_as_obj(s->usable_arena_count);
+    PyTuple_SET_ITEM(statistics_obj, 0, usable_arena_count_obj);
+
+    PyObject* unused_arena_count_obj = count_as_obj(s->unused_arena_count);
+    PyTuple_SET_ITEM(statistics_obj, 1, unused_arena_count_obj);
+
+    PyObject* arenas_count_obj = count_as_obj(s->arenas_count);
+    PyTuple_SET_ITEM(statistics_obj, 2, arenas_count_obj);
+
+    PyObject* maxarenas_obj = count_as_obj(s->maxarenas);
+    PyTuple_SET_ITEM(statistics_obj, 3, maxarenas_obj);
+
+    PyObject* narenas_currently_allocated_obj = count_as_obj(s->narenas_currently_allocated);
+    PyTuple_SET_ITEM(statistics_obj, 4, narenas_currently_allocated_obj);
+
+    PyObject* ntimes_arena_allocated_obj = count_as_obj(s->ntimes_arena_allocated);
+    PyTuple_SET_ITEM(statistics_obj, 5, ntimes_arena_allocated_obj);
+
+    PyObject* narenas_highwater_obj = count_as_obj(s->narenas_highwater);
+    PyTuple_SET_ITEM(statistics_obj, 6, narenas_highwater_obj);
+
+    return statistics_obj;
 }
 
 static int
@@ -1264,6 +1300,9 @@ PyDoc_STRVAR(tracemalloc_start_doc,
     "Start tracing Python memory allocations. Set also the maximum number \n"
     "of frames stored in the traceback of a trace to nframe.");
 
+PyDoc_STRVAR(tracemalloc_get_arena_statistics_doc,
+    "get arena statistics.");
+
 static PyObject*
 py_tracemalloc_start(PyObject *self, PyObject *args)
 {
@@ -1285,6 +1324,13 @@ py_tracemalloc_start(PyObject *self, PyObject *args)
         return NULL;
 
     Py_RETURN_NONE;
+}
+
+static PyObject*
+py_tracemalloc_get_arena_statistics(PyObject *self)
+{
+    PyMem_GetArenaStatistics(&arena_statistics);
+    return arenastatistics_to_pyobject(&arena_statistics);
 }
 
 PyDoc_STRVAR(tracemalloc_stop_doc,
@@ -1382,6 +1428,8 @@ static PyMethodDef module_methods[] = {
      METH_NOARGS, tracemalloc_get_tracemalloc_memory_doc},
     {"get_traced_memory", (PyCFunction)tracemalloc_get_traced_memory,
      METH_NOARGS, tracemalloc_get_traced_memory_doc},
+     {"_get_arena_statistics", (PyCFunction)py_tracemalloc_get_arena_statistics,
+     METH_NOARGS, tracemalloc_get_arena_statistics_doc},
 
     /* private functions */
     {"_atexit", (PyCFunction)tracemalloc_atexit, METH_NOARGS},

@@ -6,7 +6,7 @@ import pickle
 
 # Import types and functions implemented in C
 from _tracemalloc import *
-from _tracemalloc import _get_object_traceback, _get_traces, __version__
+from _tracemalloc import _get_object_traceback, _get_traces, __version__, _get_arena_statistics
 
 
 try:
@@ -267,6 +267,10 @@ def get_object_traceback(obj):
     else:
         return None
 
+def get_arena_statistics():
+    statistics = _get_arena_statistics()
+    return ArenaStatistics(statistics)
+
 
 class Trace(object):
     """
@@ -516,3 +520,51 @@ def take_snapshot():
     traces = _get_traces()
     traceback_limit = get_traceback_limit()
     return Snapshot(traces, traceback_limit)
+
+
+class ArenaStatistics(object):
+    """
+    Arena Statistics.
+    """
+
+    def __init__(self, statistics):
+        self._statistics = statistics
+
+    @property
+    def usable_arena_count(self):
+        return self._statistics[0]
+
+    @property
+    def unused_arena_count(self):
+        return self._statistics[1]
+
+    @property
+    def arenas_count(self):
+        return self._statistics[2]
+
+    @property
+    def maxarenas(self):
+        return self._statistics[3]
+
+    @property
+    def narenas_currently_allocated(self):
+        return self._statistics[4]
+
+    @property
+    def ntimes_arena_allocated(self):
+        return self._statistics[5]
+
+    @property
+    def narenas_highwater(self):
+        return self._statistics[6]
+
+    def __str__(self):
+        return "\n".join(["{0}:{1}".format(item[0], item[1]) for item in [
+            ("usable_arena_count", self.usable_arena_count),
+            ("unused_arena_count", self.unused_arena_count),
+            ("arenas_count", self.arenas_count),
+            ("maxarenas", self.maxarenas),
+            ("narenas_currently_allocated", self.narenas_currently_allocated),
+            ("ntimes_arena_allocated", self.ntimes_arena_allocated),
+            ("narenas_highwater", self.narenas_highwater),
+        ]])
